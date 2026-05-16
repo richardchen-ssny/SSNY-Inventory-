@@ -41,7 +41,6 @@ header{background:linear-gradient(135deg,var(--pd),var(--pm) 60%,var(--pl));colo
 .tabs{max-width:700px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .tab{padding:8px 14px;border-radius:12px;font-size:.82rem;font-weight:700;cursor:pointer;border:2px solid var(--border);background:#fff;color:var(--muted);transition:all .15s;text-align:center}
 .tab.active{background:var(--pm);color:#fff;border-color:var(--pm)}
-.tab.tall{grid-column:span 1}
 
 main{max-width:700px;margin:0 auto;padding:14px 16px 100px}
 
@@ -51,6 +50,7 @@ main{max-width:700px;margin:0 auto;padding:14px 16px 100px}
 .card.low{border-left:4px solid var(--low)}
 .card.out{border-left:4px solid var(--out)}
 .card.ok{border-left:4px solid var(--ok)}
+.card.restocked{border:2px solid var(--gold);box-shadow:0 0 0 3px rgba(244,185,66,.2)}
 
 .ir{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .iname{font-weight:800;font-size:.9rem;line-height:1.3}
@@ -107,15 +107,16 @@ input:focus,select:focus{border-color:var(--pl)}
 </style>
 </head>
 <body>
-<div id="syncBar" style="display:none;position:fixed;top:0;left:0;right:0;z-index:999;background:#3c3089;color:#fff;text-align:center;padding:8px 16px;font-family:Nunito,sans-serif;font-size:.85rem;font-weight:700;"></div><header>
+<div id="syncBar" style="display:none;position:fixed;top:0;left:0;right:0;z-index:999;background:#3c3089;color:#fff;text-align:center;padding:8px 16px;font-family:Nunito,sans-serif;font-size:.85rem;font-weight:700;"></div>
+<header>
   <div class="hi">
     <div class="hrow">
       <div>
-        <div class="logo">🦷 Smile Services of New York</div>
+        <div class="logo">Smile Services of New York</div>
         <div class="sub">Inventory Manager</div>
       </div>
     </div>
-    <input class="hsearch" type="text" id="searchInput" placeholder="Search items…">
+    <input class="hsearch" type="text" id="searchInput" placeholder="Search items...">
   </div>
 </header>
 
@@ -150,13 +151,13 @@ input:focus,select:focus{border-color:var(--pl)}
           <option>Misc &amp; Office</option>
         </select>
       </div>
-      <div class="fg"><label>Unit</label><input type="text" id="nUnit" placeholder="boxes, pcs…"></div>
+      <div class="fg"><label>Unit</label><input type="text" id="nUnit" placeholder="boxes, pcs..."></div>
     </div>
     <div class="fr">
       <div class="fg"><label>Qty in Stock</label><input type="number" id="nQty" min="0" placeholder="0"></div>
-      <div class="fg"><label>Low Alert ≤</label><input type="number" id="nLow" min="0" placeholder="5"></div>
+      <div class="fg"><label>Low Alert &le;</label><input type="number" id="nLow" min="0" placeholder="5"></div>
     </div>
-    <div class="fn">⚠ Items at or below Low Alert will be flagged automatically.</div>
+    <div class="fn">Items at or below Low Alert will be flagged automatically.</div>
     <button class="bp" onclick="saveItem()">Add Item</button>
     <button class="bc" onclick="closeModal()">Cancel</button>
   </div>
@@ -165,11 +166,11 @@ input:focus,select:focus{border-color:var(--pl)}
 <div class="mo" id="mRestock">
   <div class="modal">
     <div class="mh"></div>
-    <div class="mt">📦 Restock</div>
+    <div class="mt">Restock</div>
     <div class="rn" id="rName"></div>
     <div class="rc" id="rCur"></div>
     <div class="fg"><label>Quantity to Add</label><input type="number" id="rQty" min="1" placeholder="Enter amount received"></div>
-    <button class="bp" onclick="confirmRestock()">✓ Confirm Restock</button>
+    <button class="bp" onclick="confirmRestock()">Confirm Restock</button>
     <button class="bc" onclick="closeModal()">Cancel</button>
   </div>
 </div>
@@ -180,7 +181,7 @@ input:focus,select:focus{border-color:var(--pl)}
     <div class="mt">Edit Low Alert</div>
     <div class="rn" id="lName"></div>
     <div class="rc" id="lCur"></div>
-    <div class="fg"><label>Flag as Low when stock ≤</label><input type="number" id="lVal" min="0"></div>
+    <div class="fg"><label>Flag as Low when stock &le;</label><input type="number" id="lVal" min="0"></div>
     <button class="bp" onclick="confirmLow()">Save</button>
     <button class="bc" onclick="closeModal()">Cancel</button>
   </div>
@@ -193,15 +194,9 @@ var STORAGE_KEY = 'smileservices_v4';
 
 var CATS = [
   'All',
-  'Surgical & Sutures',
-  'Sterilization',
-  'Gauze & Wound Care',
-  'Impression Materials',
-  'Restorative & Cements',
-  'Burs & Instruments',
-  'Suction & Evacuation',
-  'PPE & Barriers',
-  'Misc & Office'
+  'Surgical & Sutures','Sterilization','Gauze & Wound Care',
+  'Impression Materials','Restorative & Cements','Burs & Instruments',
+  'Suction & Evacuation','PPE & Barriers','Misc & Office'
 ];
 
 var RAW = [
@@ -321,6 +316,7 @@ var activeCat = 'All';
 var restockId = null;
 var lowId = null;
 var syncing = false;
+var lastRestockedId = null; // FIX: track last restocked item
 
 // ── SYNC ──────────────────────────────────────────────────────
 
@@ -335,7 +331,7 @@ function hideSyncBar() {
 }
 
 function loadFromSheet() {
-  showSyncBar('🔄 Syncing with Google Sheets…');
+  showSyncBar('Syncing with Google Sheets...');
   fetch(API_URL + '?action=getAll')
     .then(function(r) { return r.json(); })
     .then(function(data) {
@@ -344,7 +340,6 @@ function loadFromSheet() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
         hideSyncBar();
       } else {
-        // Sheet is empty — push defaults
         items = loadLocal();
         pushAllToSheet();
       }
@@ -352,9 +347,8 @@ function loadFromSheet() {
       render();
     })
     .catch(function() {
-      // Offline — use local cache
       items = loadLocal();
-      showSyncBar('⚠️ Offline — showing cached data', '#e87c3e');
+      showSyncBar('Offline — showing cached data', '#e87c3e');
       setTimeout(hideSyncBar, 3000);
       buildTabs();
       render();
@@ -363,20 +357,20 @@ function loadFromSheet() {
 
 function pushAllToSheet() {
   syncing = true;
-  showSyncBar('💾 Saving to Google Sheets…');
+  showSyncBar('Saving to Google Sheets...');
   fetch(API_URL, {
     method: 'POST',
     body: JSON.stringify({ action: 'saveAll', items: items })
   })
     .then(function(r) { return r.json(); })
-    .then(function(data) {
+    .then(function() {
       syncing = false;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
       hideSyncBar();
     })
     .catch(function() {
       syncing = false;
-      showSyncBar('⚠️ Save failed — stored locally', '#d93636');
+      showSyncBar('Save failed — stored locally', '#d93636');
       setTimeout(hideSyncBar, 3000);
     });
 }
@@ -387,7 +381,7 @@ function pushItemToSheet(item) {
     method: 'POST',
     body: JSON.stringify({ action: 'updateItem', item: item })
   }).catch(function() {
-    showSyncBar('⚠️ Could not sync — saved locally', '#e87c3e');
+    showSyncBar('Could not sync — saved locally', '#e87c3e');
     setTimeout(hideSyncBar, 2500);
   });
 }
@@ -454,8 +448,10 @@ function cardHTML(item) {
   var s = status(item);
   var bc = s === 'ok' ? 'bok' : s === 'low' ? 'blow' : 'bout';
   var bt = s === 'ok' ? '&#10003; OK' : s === 'low' ? '&#9888; Low' : '&#10005; Out';
+  // FIX: highlight the card that was just restocked
+  var highlight = item.id === lastRestockedId ? ' restocked' : '';
   var div = document.createElement('div');
-  div.className = 'card ' + s;
+  div.className = 'card ' + s + highlight;
   div.innerHTML = [
     '<div class="ir">',
       '<div style="flex:1;min-width:0">',
@@ -473,7 +469,7 @@ function cardHTML(item) {
       '</div>',
     '</div>',
     '<div class="ia">',
-      '<button class="bs brest" data-id="' + item.id + '" data-action="restock">&#128230; Restock</button>',
+      '<button class="bs brest" data-id="' + item.id + '" data-action="restock">Restock</button>',
       '<button class="bs" data-id="' + item.id + '" data-action="markout">Mark Out</button>',
       '<button class="bs danger" data-id="' + item.id + '" data-action="del">Delete</button>',
     '</div>'
@@ -484,10 +480,21 @@ function cardHTML(item) {
 function render() {
   updateStats();
   var q = document.getElementById('searchInput').value.toLowerCase();
+
+  // FIX: if there's a recently restocked item AND we're on low/out filter,
+  // temporarily switch to 'all' so it stays visible
+  var effectiveFilter = activeFilter;
+  if (lastRestockedId && activeFilter !== 'all') {
+    var ri = find(lastRestockedId);
+    if (ri && status(ri) !== activeFilter) {
+      effectiveFilter = 'all';
+    }
+  }
+
   var filtered = items.filter(function(item) {
     var matchCat = activeCat === 'All' || item.cat === activeCat;
     var matchQ = item.name.toLowerCase().indexOf(q) !== -1 || item.cat.toLowerCase().indexOf(q) !== -1;
-    var matchF = activeFilter === 'all' || status(item) === activeFilter;
+    var matchF = effectiveFilter === 'all' || status(item) === effectiveFilter || item.id === lastRestockedId;
     return matchCat && matchQ && matchF;
   });
 
@@ -518,6 +525,15 @@ function render() {
     var html2 = '';
     for (var n = 0; n < filtered.length; n++) html2 += cardHTML(filtered[n]);
     list.innerHTML = html2;
+  }
+
+  // FIX: scroll the restocked item into view
+  if (lastRestockedId) {
+    var el = list.querySelector('[data-id="' + lastRestockedId + '"][data-action="restock"]');
+    if (el) {
+      var card = el.closest('.card');
+      if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
   }
 }
 
@@ -567,7 +583,7 @@ function openLow(id) {
   lowId = id;
   var item = find(id); if (!item) return;
   document.getElementById('lName').textContent = item.name;
-  document.getElementById('lCur').textContent = 'Current threshold: ≤' + item.lowAt + ' ' + item.unit;
+  document.getElementById('lCur').textContent = 'Current threshold: \u2264' + item.lowAt + ' ' + item.unit;
   document.getElementById('lVal').value = item.lowAt;
   open('mLow');
 }
@@ -589,19 +605,27 @@ function saveItem() {
   var lowAt = parseInt(document.getElementById('nLow').value) || 5;
   var item = { id: uid(), name: name, cat: cat, unit: unit, qty: qty, lowAt: lowAt };
   items.push(item);
+  lastRestockedId = item.id; // highlight the new item
   render();
   closeModal();
   pushItemToSheet(item);
   toast(name + ' added!');
+  // clear highlight after 4 seconds
+  setTimeout(function() { lastRestockedId = null; render(); }, 4000);
 }
 
 function confirmRestock() {
   var add = parseInt(document.getElementById('rQty').value);
   if (!add || add < 1) { alert('Enter a valid quantity.'); return; }
   var item = find(restockId); if (!item) return;
-  item.qty += add; render(); closeModal();
+  item.qty += add;
+  lastRestockedId = restockId; // FIX: track so it stays visible and highlighted
+  closeModal();
+  render();
   pushItemToSheet(item);
   toast('Restocked ' + item.name + ' (+' + add + ')');
+  // clear highlight after 4 seconds
+  setTimeout(function() { lastRestockedId = null; render(); }, 4000);
 }
 
 function confirmLow() {
@@ -626,7 +650,6 @@ function toast(msg) {
   setTimeout(function() { t.classList.remove('show'); }, 2500);
 }
 
-// close modals on overlay click
 var overlays = document.querySelectorAll('.mo');
 for (var oi = 0; oi < overlays.length; oi++) {
   overlays[oi].addEventListener('click', function(e) {
@@ -636,7 +659,6 @@ for (var oi = 0; oi < overlays.length; oi++) {
 
 document.getElementById('searchInput').addEventListener('input', render);
 
-// Delegated click handler for all card buttons
 document.getElementById('list').addEventListener('click', function(e) {
   var btn = e.target.closest('[data-action]');
   if (!btn) return;
@@ -650,12 +672,10 @@ document.getElementById('list').addEventListener('click', function(e) {
   if (action === 'low')     openLow(id);
 });
 
-// Auto-refresh every 30 seconds to pick up changes from other devices
 setInterval(function() {
   if (!syncing) loadFromSheet();
 }, 30000);
 
-// ── INIT ──────────────────────────────────────────────────────
 loadFromSheet();
 </script>
 </body>
