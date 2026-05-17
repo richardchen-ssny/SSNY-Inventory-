@@ -619,13 +619,12 @@ function confirmRestock() {
   if (!add || add < 1) { alert('Enter a valid quantity.'); return; }
   var item = find(restockId); if (!item) return;
   item.qty += add;
-  lastRestockedId = restockId; // FIX: track so it stays visible and highlighted
+  lastRestockedId = restockId;
   closeModal();
   render();
   pushItemToSheet(item);
   toast('Restocked ' + item.name + ' (+' + add + ')');
-  // clear highlight after 4 seconds
-  setTimeout(function() { lastRestockedId = null; render(); }, 4000);
+  setTimeout(function() { lastRestockedId = null; render(); }, 5000);
 }
 
 function confirmLow() {
@@ -673,7 +672,7 @@ document.getElementById('list').addEventListener('click', function(e) {
 });
 
 setInterval(function() {
-  if (!syncing) loadFromSheet();
+  if (!syncing && !lastRestockedId) loadFromSheet();
 }, 30000);
 
 loadFromSheet();
