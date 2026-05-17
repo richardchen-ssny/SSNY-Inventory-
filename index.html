@@ -621,6 +621,12 @@ function confirmRestock() {
   item.qty += add;
   lastRestockedId = restockId;
   closeModal();
+  // Always switch to All so the restocked item is visible regardless of status
+  activeFilter = 'all';
+  ['all','low','out'].forEach(function(x) {
+    var el = document.getElementById('f' + x.charAt(0).toUpperCase() + x.slice(1));
+    if (el) el.classList.toggle('active', x === 'all');
+  });
   render();
   pushItemToSheet(item);
   toast('Restocked ' + item.name + ' (+' + add + ')');
