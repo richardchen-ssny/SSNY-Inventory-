@@ -481,20 +481,12 @@ function render() {
   updateStats();
   var q = document.getElementById('searchInput').value.toLowerCase();
 
-  // FIX: if there's a recently restocked item AND we're on low/out filter,
-  // temporarily switch to 'all' so it stays visible
-  var effectiveFilter = activeFilter;
-  if (lastRestockedId && activeFilter !== 'all') {
-    var ri = find(lastRestockedId);
-    if (ri && status(ri) !== activeFilter) {
-      effectiveFilter = 'all';
-    }
-  }
-
   var filtered = items.filter(function(item) {
+    // Always show the recently restocked item regardless of filter
+    if (item.id === lastRestockedId) return true;
     var matchCat = activeCat === 'All' || item.cat === activeCat;
     var matchQ = item.name.toLowerCase().indexOf(q) !== -1 || item.cat.toLowerCase().indexOf(q) !== -1;
-    var matchF = effectiveFilter === 'all' || status(item) === effectiveFilter || item.id === lastRestockedId;
+    var matchF = activeFilter === 'all' || status(item) === activeFilter;
     return matchCat && matchQ && matchF;
   });
 
@@ -621,12 +613,6 @@ function confirmRestock() {
   item.qty += add;
   lastRestockedId = restockId;
   closeModal();
-  // Always switch to All so the restocked item is visible regardless of status
-  activeFilter = 'all';
-  ['all','low','out'].forEach(function(x) {
-    var el = document.getElementById('f' + x.charAt(0).toUpperCase() + x.slice(1));
-    if (el) el.classList.toggle('active', x === 'all');
-  });
   render();
   pushItemToSheet(item);
   toast('Restocked ' + item.name + ' (+' + add + ')');
