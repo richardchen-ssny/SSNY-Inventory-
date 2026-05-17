@@ -534,8 +534,11 @@ function render() {
 function chQty(id, d) {
   var item = find(id); if (!item) return;
   item.qty = Math.max(0, item.qty + d);
+  lastRestockedId = id;
   render();
   pushItemToSheet(item);
+  clearTimeout(window._restockTimer);
+  window._restockTimer = setTimeout(function() { lastRestockedId = null; render(); }, 5000);
 }
 
 function markOut(id) {
@@ -616,7 +619,8 @@ function confirmRestock() {
   render();
   pushItemToSheet(item);
   toast('Restocked ' + item.name + ' (+' + add + ')');
-  setTimeout(function() { lastRestockedId = null; render(); }, 5000);
+  clearTimeout(window._restockTimer);
+  window._restockTimer = setTimeout(function() { lastRestockedId = null; render(); }, 5000);
 }
 
 function confirmLow() {
